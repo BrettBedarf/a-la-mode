@@ -35,10 +35,17 @@ skills:
   - "!~/dev/pi/skills/legacy-rust"
 extensions:
   - ~/dev/pi/exts/git-checkpoint.ts
+global_mode_behavior: merge # project-local only: merge | overwrite | disable
 ---
 
 ...appended to system prompt...
 ```
+
+Project-local override semantics:
+
+- `global_mode_behavior: merge` merges the project-local mode with the global mode of the same name.
+- `global_mode_behavior: overwrite` ignores the global mode and uses only the project-local mode.
+- `global_mode_behavior: disable` removes the global mode entirely for the current project.
 
 List semantics:
 
@@ -51,7 +58,7 @@ List semantics:
 ### 2. Mode Manager Extension
 
 - **Discovers** configs on `session_start` from `~/.pi/agent/modes/*.md`
-- **Merges** user + project agents/modes by name, with project-local agents/modes overriding scalar fields, applying blacklist semantics for `disabled_tools`, using negation-aware merging for `skills`, and treating `extensions` as additive-only
+- **Resolves** user + project agents/modes by name, with project-local modes choosing `merge`, `overwrite`, or `disable` behavior for same-named global modes; merge mode overrides scalar fields, applies blacklist semantics for `disabled_tools`, uses negation-aware merging for `skills`, and treats `extensions` as additive-only
 - **Registers** `/mode <name>` command + optional configurable shortcut
 - **Switches** via `pi.setActiveTools()`, `pi.setModel()`, `pi.setThinkingLevel()`
 - **Injects** instructions via `before_agent_start` event (chained system prompt)
@@ -89,12 +96,12 @@ Register `--mode` flag via `pi.registerFlag()`.
 
 - `index.ts` with `ExtensionAPI` factory, `session_start` handler, config discovery
 - Shared loaders for markdown frontmatter and JSON/JSONC agent configs
-- Normalize config fields, parse `disabled_tools`, parse quoted `!entry` removals for `skills`, and keep `extensions` additive-only
+- Normalize config fields, parse `disabled_tools`, parse quoted `!entry` removals for `skills`, keep `extensions` additive-only, and parse project-local `global_mode_behavior`
 
 ### Phase 1: Discovery + Switching
 
 - Load `*.md` from ~/.pi/agent/modes/`
-- Merge with precedence `project > user`, with blacklist semantics for `disabled_tools`, negation-aware merging for `skills`, and additive-only merging for `extensions`
+- Resolve with precedence `project > user`, where project-local same-named modes can `merge`, `overwrite`, or `disable` the global mode; merged modes use blacklist semantics for `disabled_tools`, negation-aware merging for `skills`, and additive-only merging for `extensions`
 - `/mode` command with `ctx.ui.select()` picker
 - Apply effective active tools, `model`, and `thinkingLevel` on switch
 - Status bar via `ctx.ui.setStatus()`
@@ -123,7 +130,7 @@ Register `--mode` flag via `pi.registerFlag()`.
 
 1. Use composition, not parent inheritance, in v1. Reuse via shared skills, prompt fragments, tool presets, or copied configs; represent tool removal via `disabled_tools`, allow quoted `!entry` removals for `skills`, and keep `extensions` additive-only without introducing full inheritance.
 2. Support Markdown frontmatter.
-3. Project-local modes override user modes with same name after project trust is granted.
+3. After project trust is granted, project-local modes with the same name can merge with, overwrite, or disable user/global modes entirely.
 4. Use `build` vernacular to match opencode-style primary agent naming.
 5. Do not hardcode mode-switch keyboard shortcut in plan; treat it as optional configurable UX.
 
